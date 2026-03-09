@@ -84,7 +84,8 @@ REGRESSION_TARGETS=(
     "targetfile"
 )
 
-
+# locally overwriting BASE_IMAGES and TARGET_FILES for this step to run all simulations in a loop
+# without affecting the variables for the other steps. This helps with function consistency.
 for b in ${BASE_IMAGES[@]}; do
     BASE_IMAGES=($b)
     TARGET_FILES=($b)
@@ -105,3 +106,12 @@ TARGET_FILES=(
     "RF.nii")
 
 run_step3_simulations
+
+
+# ---- create semi-lollipop plot ---- #
+# using concatenated significance ratios across maps
+
+python create_semi_lolli.py /mnt/h/HypoLesion/Data/UCL/net_morph/SignificanceRatios.csv --spoke-color 'darkgrey' --limit 65
+python create_semi_lolli.py /mnt/h/HypoLesion/Data/UCL/net_true/SignificanceRatios.csv --spoke-color 'darkgrey' --limit 105
+python create_semi_lolli.py /mnt/h/HypoLesion/Data/UCL/tract_morph/SignificanceRatios.csv --spoke-color 'darkgrey' --limit 65
+python create_semi_lolli.py /mnt/h/HypoLesion/Data/UCL/tract_true/SignificanceRatios.csv --spoke-color 'darkgrey' --limit 105

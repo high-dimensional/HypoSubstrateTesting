@@ -21,7 +21,7 @@
 % -dataDir: directory for masks and output (default: '/path/to/Data')   %
 % -spmPath: Path to SPM installation (default: '/path/to/spm')          %
 % -ncas: Number of cases per iteration (default: 300)                   %
-% -nlow: Low noise level (default: 0.2)                                 %
+% -nlow: Low noise level (default: 0.3)                                 %
 % -nhigh: High noise level (default: 0.6)                               %
 % -nits: Number of iterations (default: 5000)                           %
 % -splitPercentile: Percentile threshold for balanced bootstrapping     %
@@ -29,6 +29,7 @@
 % -figureFormat: Figure format (default: 'pdf')                         %
 % -binSize: Noise-level binning (default: 0.05)                         %    
 % -n_subset: Randomly subset the data to this N                         %
+% -seed: Random seed for reproducibility (default: 42)                  %
 %                                                                       %
 % last update: 2026/03/07.                                              %
 %                                                                       %
@@ -46,7 +47,7 @@ function simulations(varargin)
     addParameter(p, 'outputDir', '', @ischar);
     addParameter(p, 'spmPath', '/path/to/spm', @ischar);
     addParameter(p, 'ncas', 300, @isnumeric);
-    addParameter(p, 'nlow', 0.2, @isnumeric);
+    addParameter(p, 'nlow', 0.3, @isnumeric);
     addParameter(p, 'nhigh', 0.6, @isnumeric);
     addParameter(p, 'nits', 5000, @isnumeric);
     addParameter(p, 'splitPercentile', 30, @isnumeric);
@@ -54,6 +55,7 @@ function simulations(varargin)
     addParameter(p, 'figureFormat', 'pdf', @ischar);
     addParameter(p, 'binSize', 0.05, @(x) isnumeric(x) && isscalar(x) && x > 0);
     addParameter(p, 'n_subset', NaN, @(x) isnumeric(x) && isscalar(x));
+    addParameter(p, 'seed', 42, @(x) isnumeric(x) && isscalar(x));
     addParameter(p, 'help', false, @islogical);
     parse(p, varargin{:});
     
@@ -82,6 +84,7 @@ function simulations(varargin)
     figureFormat = p.Results.figureFormat;
     binSize = p.Results.binSize;
     n_subset = p.Results.n_subset;
+    seed = p.Results.seed;
     
     % Validate target type
     validTargets = {'morphology', 'targetfile'};
@@ -109,6 +112,7 @@ function simulations(varargin)
     fprintf('Split percentile: %d%% (low <= %dth pctl, high > %dth pctl)\n', splitPercentile, splitPercentile, splitPercentile);
     fprintf('Noise range: %.2f - %.2f\n', nlow, nhigh);
     fprintf('Iterations: %d\n', nits);
+    fprintf('Random seed: %d\n', seed);
     fprintf('========================================\n\n');
     
     % Ensure SPM is in the MATLAB path
@@ -203,10 +207,7 @@ function simulations(varargin)
                     error('Target file does not contain res or princ variable: %s', targetCacheFile);
                 end
             else
-                fprintf('Target file not found. Computing %s intersections...\n', targetName);
-                computeTargetIntersections(targetFile, dataDir, lesionDir);
-                targetData = load(targetCacheFile);
-                princ = targetData.res(:,1);
+                error('Target cache file not found: %s. Run preprocessingFeatures first.', targetCacheFile);
             end
             fprintf('princ extracted from target data (size: %dx%d)\n', size(princ, 1), size(princ, 2));
     end
@@ -216,6 +217,10 @@ function simulations(varargin)
     clear res_base;  % Clean up temporary variable
     fprintf('res restored to base image data for simulations\n');
     
+    % === SET RANDOM SEED (before any random operations) =========================
+    rng(seed);
+    fprintf('Random seed set to: %d\n', seed);
+
     % === OPTIONAL DATA SUBSETTING ==============================================
     if ~isnan(n_subset)
         nTotal = size(res, 1);
@@ -242,16 +247,29 @@ function simulations(varargin)
             fprintf('  Completed %d/%d iterations\n', j, nits);
         end
         
-        [result(:, j), ~] = runIteration(res, princ, regressionTarget, nlev(j), ncas, splitPercentile);
+        [result(:, j), iterData] = runIteration(res, princ, regressionTarget, nlev(j), ncas, splitPercentile);
+        
+        % Capture scatter plot data from the first and last iterations
+        if j == 1
+            scatterData_low = iterData;
+            scatterData_low.noiseLevel = nlev(j);
+        end
+        if j == length(nlev)
+            scatterData_high = iterData;
+            scatterData_high.noiseLevel = nlev(j);
+        end
     end
     
     fprintf('Simulations complete.\n');
     
     % === SAVE RESULTS ==========================================================
     fprintf('\nSaving results...\n');
-    % Include res and princ so plot_sim_results can use them directly
-    % without needing to reload from separate files
-    save(resultFile, 'result', 'nlev', 'regressionTarget', 'baseImageFile', 'targetFile', 'ncas', 'nits', 'splitPercentile', 'n_subset', 'binSize', 'res', 'princ');
+    % Include scatterData structs so plot_sim_results can plot actual
+    % simulation iterations without regenerating noise or rerunning regressions
+    save(resultFile, 'result', 'nlev', 'regressionTarget', 'baseImageFile', ...
+        'targetFile', 'lesionDir', 'ncas', 'nits', 'splitPercentile', ...
+        'n_subset', 'binSize', 'seed', ...
+        'scatterData_low', 'scatterData_high');
     fprintf('Results saved to: %s\n', resultFile);
     
     % === GENERATE FIGURES (via plot_sim_results) ================================
@@ -260,7 +278,7 @@ function simulations(varargin)
     figureOutputFile = fullfile(outputDir, [figureBaseName '_figures.' figureFormat]);
     
     try
-        plot_sim_results(resultFile, 'dataDir', dataDir, 'outputFile', figureOutputFile, 'binSize', binSize);
+        plot_sim_results(resultFile, 'outputFile', figureOutputFile, 'binSize', binSize);
         fprintf('Figures saved to: %s\n', figureOutputFile);
     catch ME
         fprintf('WARNING: Figure generation failed: %s\n', ME.message);
@@ -420,7 +438,6 @@ function [result, dataOut] = runIteration(res, princ, regressionTarget, noiseLev
 
     % Create data table with selected samples only
     data = table(cogg, ovrl, voll, comp, 'VariableNames', {'Cognition', 'Overlap', 'Volume', 'Network'});
-    data.comp = categorical(data.Network);
     data(~indvec, :) = [];
 
     % Fit model without volume covariate
@@ -442,55 +459,13 @@ function [result, dataOut] = runIteration(res, princ, regressionTarget, noiseLev
     result(2) = -log(tmp(5));
 
     % Output data structure (for visualization)
+    % Note: LinearModel objects don't serialize reliably across MATLAB
+    % versions, so we save the filtered data table instead and refit at
+    % plot time (cheap for a single iteration).
     dataOut.ovrl = ovrl;
     dataOut.cogg = cogg;
     dataOut.comp = comp;
     dataOut.indvec = indvec;
     dataOut.voll = voll;
-    dataOut.fit = fit;
     dataOut.data = data;
-end
-
-
-function computeTargetIntersections(targetFile, dataDir, lesionDir)
-    % Compute intersections for target file
-    src = dir(fullfile(lesionDir, '*.nii'));
-    mskTarget = spm_read_vols(spm_vol(fullfile(dataDir, 'Masks', targetFile)));
-    msktotTarget = sum(mskTarget(:) > 0);
-    
-    [~, targetName, ~] = fileparts(targetFile);
-    targetCacheFile = fullfile(dataDir, ['template' upper(targetName(1)) lower(targetName(2:end)) '.mat']);
-    
-    fprintf('Computing %s intersections...\n', targetName);
-    princ = zeros(length(src), 1);
-    
-    for i = 1:length(src)
-        matlabbatch{1}.spm.util.imcalc.input = {
-            fullfile(dataDir, 'Masks', targetFile)
-            [fullfile(src(i).folder, src(i).name) ',1']
-        };
-        matlabbatch{1}.spm.util.imcalc.output = 'tmp';
-        matlabbatch{1}.spm.util.imcalc.outdir = {''};
-        matlabbatch{1}.spm.util.imcalc.expression = 'i1-i2';
-        matlabbatch{1}.spm.util.imcalc.var = struct('name', {}, 'value', {});
-        matlabbatch{1}.spm.util.imcalc.options.dmtx = 0;
-        matlabbatch{1}.spm.util.imcalc.options.mask = 0;
-        matlabbatch{1}.spm.util.imcalc.options.interp = 0;
-        matlabbatch{1}.spm.util.imcalc.options.dtype = 4;
-        spm_jobman('run', matlabbatch);
-        clear matlabbatch
-        
-        tar = spm_read_vols(spm_vol('tmp.nii'));
-        princ(i) = msktotTarget - sum(tar(:) > 0);
-        
-        if mod(i, 100) == 0
-            fprintf('  Processed %d/%d lesions\n', i, length(src));
-        end
-    end
-    
-    % Store raw overlaps as res (for consistency with base image templates)
-    res = princ;
-    princ = rescale(princ)';
-    save(targetCacheFile, 'res', 'princ');
-    fprintf('Saved %s\n', targetCacheFile);
 end

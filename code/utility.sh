@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 #########################################################################
 #                                      ###     ###    #######   ###     #
 #                                      ###     ###   ###        ###     #
@@ -78,7 +79,7 @@ run_step2_features() {
         log "----------------------------------------"
         log "Processing base image: $base_image"
         
-        run_matlab "preprocessingFeatures('baseImageFile', '$base_image', 'lesionDir', '$LESION_DIR', 'dataDir', '$DATA_DIR', 'spmPath', '$SPM_PATH');" &
+        run_matlab "preprocessingFeatures('baseImageFile', '$base_image', 'lesionDir', '$LESION_DIR', 'dataDir', '$DATA_DIR', 'spmPath', '$SPM_PATH');"
         
         if [ $? -eq 0 ]; then
             log "Features computed for: $base_image"

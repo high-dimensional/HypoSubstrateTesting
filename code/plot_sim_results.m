@@ -19,57 +19,45 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-function plot_simulation_results_violin(varargin)
-    % plot_simulation_results_violin - Create figures from simulation results
-    % Uses custom split violin plots for binned p-value comparison
+function plot_sim_results(varargin)
+    % plot_sim_results - Create figures from simulation results
+    % Uses saved scatter data from actual simulation iterations and
+    % split violin plots for binned p-value comparison.
     %
     % Usage:
-    %   plot_simulation_results_violin(resultFile)
-    %   plot_simulation_results_violin(resultFile, 'Name', Value, ...)
+    %   plot_sim_results(resultFile)
+    %   plot_sim_results(resultFile, 'Name', Value, ...)
     %
     % Arguments:
-    %   resultFile  - Path to simulation results .mat file (from simulations_clean.m)
+    %   resultFile  - Path to simulation results .mat file (from simulations.m)
     %
     % Options:
-    %   'fontPath'    - Path to DINPro font directory or font name (default: 'DINPro-Regular')
     %   'outputFile'  - Output filepath for PDF (default: [resultFile(1:end-4) '_figures.pdf'])
-    %   'dataDir'     - Data directory containing required template/morphology files (default: '')
     %   'binSize'     - Noise bin width for split violin plot (default: from .mat file, or 0.05)
     %
     % Example:
-    %   plot_simulation_results_violin('base-MDN_morphology.mat')
-    %   plot_simulation_results_violin('base-MDN_morphology.mat', 'outputFile', 'output/figures.pdf')
-    %   plot_simulation_results_violin('base-MDN_morphology.mat', 'binSize', 0.1)
+    %   plot_sim_results('base-MDN_morphology.mat')
+    %   plot_sim_results('base-MDN_morphology.mat', 'outputFile', 'output/figures.pdf')
+    %   plot_sim_results('base-MDN_morphology.mat', 'binSize', 0.1)
 
     p = inputParser;
-    %addParameter(p, 'fontPath', '', @(x) ischar(x) || isstring(x));
     addParameter(p, 'outputFile', '', @(x) ischar(x) || isstring(x));
-    addParameter(p, 'dataDir', '', @(x) ischar(x) || isstring(x));
     addParameter(p, 'binSize', NaN, @(x) isnumeric(x) && isscalar(x));
     
     if nargin == 1
         resultFile = varargin{1};
-        %fontPath = '';
         outputFile = '';
-        dataDir = '';
         binSizeParam = NaN;
     else
         resultFile = varargin{1};
         parse(p, varargin{2:end});
-        %fontPath = char(p.Results.fontPath);
         outputFile = char(p.Results.outputFile);
-        dataDir = char(p.Results.dataDir);
         binSizeParam = p.Results.binSize;
     end
     
     if isstring(resultFile)
         resultFile = char(resultFile);
     end
-    
-    % Default font path
-    %if isempty(fontPath)
-    %    fontPath = 'H:\GitHub\hypolesions\dinprottf';
-    %end
     
     fontName = "DINPro-Regular";
 
@@ -88,7 +76,6 @@ function plot_simulation_results_violin(varargin)
     fprintf('  Target: %s\n', regressionTarget);
     fprintf('  Iterations: %d\n', nits);
     fprintf('  Cases per iteration: %d\n', ncas);
-    % fprintf('  Nnn-zero ratio: %d\n', nonZeroRatio)
     fprintf('  Noise range: %.2f - %.2f\n', min(nlev), max(nlev));
 
     [~, baseName, ~] = fileparts(baseImageFile);
@@ -103,83 +90,28 @@ function plot_simulation_results_violin(varargin)
     tiledlayout('flow', 'TileSpacing', 'tight');
     set(gca, 'Color', 'white');
 
-    nlev_plot = [min(nlev) max(nlev)];
-
-    % Use res and princ from result file if available (saved by simulations.m)
-    % Fall back to loading from separate files for backward compatibility
-    if ~exist('res', 'var') || isempty(res)
-        fprintf('res not found in result file, loading from template file...\n');
-        res = computeResiduals(baseImageFile, regressionTarget, targetFile, dataDir);
-    else
-        fprintf('Using res from result file (%dx%d)\n', size(res, 1), size(res, 2));
-    end
-    nCases = size(res, 1);
-    
-    if ~exist('princ', 'var') || isempty(princ)
-        fprintf('princ not found in result file, loading from source file...\n');
-        princ = computePrinc(regressionTarget, targetFile, baseName, dataDir);
-    else
-        fprintf('Using princ from result file (%dx%d)\n', size(princ, 1), size(princ, 2));
-    end
-
-    dataValid = false;
-    if ~isempty(res) && ~isempty(princ)
-        if size(res, 1) == length(princ(:))
-            dataValid = true;
-        end
-    end
-
-    if dataValid
-        for j = 1:length(nlev_plot)
+    % === SCATTER PLOTS: use actual simulation data from saved iterations ===
+    % scatterData_low and scatterData_high contain the exact data from the
+    % first (lowest noise) and last (highest noise) simulation iterations,
+    % so these plots show real iterations rather than regenerated ones.
+    if exist('scatterData_low', 'var') && exist('scatterData_high', 'var')
+        scatterPairs = {scatterData_low, scatterData_high};
+        for j = 1:2
             nexttile
             ax1 = gca;
             set(ax1, 'Color', 'w', 'XColor', 'k', 'YColor', 'k');
 
-            noiseLevel = nlev_plot(j);
+            sd = scatterPairs{j};
+            ovrl = sd.ovrl;
+            cogg = sd.cogg;
+            comp = sd.comp;
+            indvec = sd.indvec;
+            voll = sd.voll;
+            noiseLevel = sd.noiseLevel;
 
-            selvec = zeros(nCases, 1);
-            selvec(1:ncas) = 1;
-            selvec = selvec(randperm(length(selvec)));
-            indvec = logical([selvec; selvec]);
-
-            BaseVol = res(:,1);
-            nBaseVol = res(:,2);
-            totvol = res(:,3);
-
-            pd = makedist('Normal', 'mu', 0, 'sigma', noiseLevel);
-            dis = random(pd, [nCases 1]);
-
-            switch lower(regressionTarget)
-                case 'morphology'
-                    cog = 1 - rescale(princ(:));
-                    cog = cog(:) + dis;
-                case 'targetfile'
-                    princ_temp = rescale(princ(:));
-                    cog = 1 - princ_temp;
-                    cog = cog(:) + dis;
-                case 'baseimage'
-                    princ_temp = rescale(res(:,1));
-                    cog = 1 - princ_temp;
-                    cog = cog + dis;
-                    cog = cog(:);
-            end
-
-            cogBase = cog;
-            totvolBase = totvol;
-            cognBase = cog;
-            totvolnBase = totvol;
-
-            ovrl = [BaseVol; nBaseVol];
-            voll = [totvolBase; totvolnBase];
-            cogg = [cogBase; cognBase];
-            comp = zeros(size(cogg, 1), 1);
-            comp(1:nCases) = 1;
-
-            data = table(cogg, ovrl, voll, comp, 'VariableNames', {'Cognition', 'Overlap', 'Volume', 'Network'});
-            data.comp = categorical(data.Network);
-            data(~indvec, :) = [];
-
-            fit = fitlm(data, 'interactions', 'ResponseVar', 'Cognition', ...
+            % Refit regression from the saved filtered data table
+            % (LinearModel objects may not serialize reliably across MATLAB versions)
+            fit = fitlm(sd.data, 'interactions', 'ResponseVar', 'Cognition', ...
                 'PredictorVars', {'Overlap', 'Network'}, ...
                 'CategoricalVar', {'Network'}, 'RobustOpts', 'off');
 
@@ -192,7 +124,7 @@ function plot_simulation_results_violin(varargin)
             xlim([0 max(voll)]);
             xlabel('Compartment damage volume')
             ylabel('Simulated cognitive performance')
-            title(['Noise \sigma = ' num2str(nlev_plot(j))]);
+            title(['Noise \sigma = ' num2str(noiseLevel)]);
             axis square
             set(gca, 'XScale', 'linear', 'YScale', 'linear')
 
@@ -200,7 +132,8 @@ function plot_simulation_results_violin(varargin)
             tmp = anv.pValue;
 
             text(100, 0, ['p=' num2str(tmp(3))], 'FontSize', 14, 'FontName', fontName)
-            legend({['non-' baseNameDisplay ' overlap'], [baseNameDisplay ' overlap'], [baseNameDisplay ' fit'], ['non-' baseNameDisplay ' fit']}, ...
+            legend({['non-' baseNameDisplay ' overlap'], [baseNameDisplay ' overlap'], ...
+                [baseNameDisplay ' fit'], ['non-' baseNameDisplay ' fit']}, ...
                 'FontSize', 14, 'Box', 'off');
             set(gca, 'FontName', fontName, 'FontSize', 14)
             axis square
@@ -210,14 +143,13 @@ function plot_simulation_results_violin(varargin)
             box on;
         end
     else
-        fprintf('Warning: Data mismatch (res: %d rows, princ: %d elements). Skipping scatter plots.\n', ...
-            size(res, 1), length(princ(:)));
+        fprintf('Warning: scatterData not found in result file. Skipping scatter plots.\n');
         nexttile; hold on;
-        text(0.5, 0.5, 'Scatter plots skipped: data mismatch', ...
+        text(0.5, 0.5, 'Scatter plots skipped: no scatter data saved', ...
             'Units', 'normalized', 'HorizontalAlignment', 'center', 'FontSize', 14);
         axis on; box on;
         nexttile; hold on;
-        text(0.5, 0.5, 'Scatter plots skipped: data mismatch', ...
+        text(0.5, 0.5, 'Scatter plots skipped: no scatter data saved', ...
             'Units', 'normalized', 'HorizontalAlignment', 'center', 'FontSize', 14);
         axis on; box on;
     end
@@ -228,7 +160,7 @@ function plot_simulation_results_violin(varargin)
         case 'morphology'
             figureTitle = ['Spurious ' baseNameDisplay ' association vs noise'];
         case 'targetfile'
-            figureTitle = ['Spurious ' baseNameDisplay ' association vs noise'];
+            figureTitle = ['Missed ' baseNameDisplay ' association vs noise'];
         otherwise
             figureTitle = [baseNameDisplay ' association vs noise'];
     end
@@ -253,6 +185,7 @@ function plot_simulation_results_violin(varargin)
     set(gca, 'FontName', fontName, 'FontSize', 14)
     ylim([0 max([25, max(result(:)), max(result(:))*1.1])])
     axis square
+    box on;
 
     nexttile
     ax2 = gca;
@@ -357,69 +290,6 @@ function plot_simulation_results_violin(varargin)
     saveas(fig, outputFile);
     fprintf('Figure saved successfully.\n');
     close(fig);
-end
-
-function res = computeResiduals(baseImageFile, regressionTarget, targetFile, dataDir)
-    [~, baseName, ~] = fileparts(baseImageFile);
-    
-    if isempty(dataDir)
-        [dataDir, ~, ~] = fileparts(which(mfilename));
-        if isempty(dataDir)
-            dataDir = pwd;
-        end
-    end
-    
-    templateCacheFile = fullfile(dataDir, ['template' upper(baseName(1)) lower(baseName(2:end)) '.mat']);
-    
-    if ~isfile(templateCacheFile)
-        error('Template file not found: %s', templateCacheFile);
-    end
-    
-    load(templateCacheFile);
-    res = res;
-end
-
-function princ = computePrinc(regressionTarget, targetFile, baseName, dataDir)
-    if isempty(dataDir)
-        [dataDir, ~, ~] = fileparts(which(mfilename));
-        if isempty(dataDir)
-            dataDir = pwd;
-        end
-    end
-    
-    switch lower(regressionTarget)
-        case 'morphology'
-            morphFile = fullfile(dataDir, 'Lesions_PN_morphology.mat');
-            if ~isfile(morphFile)
-                morphFile = fullfile(dataDir, 'morphology.mat');
-            end
-            if ~isfile(morphFile)
-                error('Morphology file not found: %s', morphFile);
-            end
-            load(morphFile);
-            if ~exist('princ', 'var')
-                error('princ variable not found in morphology file');
-            end
-            princ = princ(:,1);
-            
-        case 'targetfile'
-            [~, targetName, ~] = fileparts(targetFile);
-            targetCacheFile = fullfile(dataDir, ['template' upper(targetName(1)) lower(targetName(2:end)) '.mat']);
-            if ~isfile(targetCacheFile)
-                error('Target file not found: %s', targetCacheFile);
-            end
-            targetData = load(targetCacheFile);
-            if isfield(targetData, 'res')
-                princ = targetData.res(:,1);
-            elseif isfield(targetData, 'princ')
-                princ = targetData.princ;
-            else
-                error('Target file does not contain res or princ variable');
-            end
-            
-        case 'baseimage'
-            princ = [];
-    end
 end
 
 function h = drawHalfViolin(xPos, data, side, faceColor, edgeColor, faceAlpha, maxWidth)

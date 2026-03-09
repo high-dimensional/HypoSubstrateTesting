@@ -18,4 +18,4 @@ Patrik Bey; patrik.bey (at) ucl.ac.uk
 
 
 ## REFERENCES
-Patrik Bey, Joe Mole, James K. Ruffle, Amy Nelson, Edgar Chan, Parashkev Nachev, and Lisa Cipolotti, Testing hypothesized neural substrates with lesions
+Patrik Bey, Joe Mole, James K. Ruffle, Amy Nelson, Edgar Chan, Parashkev Nachev, and Lisa Cipolotti, Testing hypothesized neural substrates with lesions    

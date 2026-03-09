@@ -18,6 +18,11 @@
 % -dataDir: directory for masks and output (default: '/path/to/Data')   %
 % -spmPath: Path to SPM installation (default: '/path/to/spm')          %
 %                                                                       %
+% IMPORTANT                                                             %
+% All lesion masks need to be binary and in the same space as the       %
+% base image for example MNI152_2mm as in the current study.            %
+% Files need to be in .nii format for use with SPM.                     %
+%                                                                       %
 % last update: 2026/03/07.                                              %
 %                                                                       %
 %                                                                       %
