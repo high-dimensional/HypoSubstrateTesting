@@ -9,14 +9,15 @@
 %                      HypoSubstrateTesting                             %
 % Testing hypothesized neural substrates with lesions                   %
 %                                                                       %
-% This script contains the function for running Monte Carlo simulations %
-% to test whether substrate map associations with cognitive outcomes    %
-% are spurious (driven by lesion volume confounds) or true.             %
+% This script contains the functions for running Monte Carlo            %
+% simulations to test whether substrate map associations with           %
+% cognitive outcomes are spurious (driven by lesion volume confounds)   %
+% or true.                                                              %
 %                                                                       %
 % input:                                                                %
 % -baseImageFile: Name of substrate image file (default: 'MDN.nii')     %
 % -regressionTarget: Target type (default: 'morphology')                %
-% -targetFile: Target file for overlap-based cognition                  %
+% -targetFile: Name of target image file (default: 'RF.nii')            %
 % -lesionDir:  containing lesion files (default: '/path/to/Lesions')    %
 % -dataDir: directory for masks and output (default: '/path/to/Data')   %
 % -spmPath: Path to SPM installation (default: '/path/to/spm')          %

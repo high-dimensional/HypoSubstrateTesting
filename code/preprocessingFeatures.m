@@ -20,7 +20,7 @@
 %                                                                       %
 % IMPORTANT                                                             %
 % All lesion masks need to be binary and in the same space as the       %
-% base image for example MNI152_2mm as in the current study.            %
+% base image (for example MNI152_2mm as in the current study).          %
 % Files need to be in .nii format for use with SPM.                     %
 %                                                                       %
 % last update: 2026/03/07.                                              %
@@ -63,7 +63,7 @@ function preprocessingFeatures(varargin)
     end
     
     % Load substrate image
-    mskPath = fullfile(dataDir, 'Masks', baseImageFile);
+    mskPath = fullfile(dataDir, 'masks', baseImageFile);
     if ~isfile(mskPath)
         error('Base image file not found: %s', mskPath);
     end

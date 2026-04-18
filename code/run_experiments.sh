@@ -22,16 +22,12 @@
 #                                                                       #
 #########################################################################
 
-
-
 # ---- SET VARIABLES ---- #
 CODE_DIR="/path/to/GitHub/HypoSubstrateTesting/code"
-# CODE_DIR="/mnt/h/GitHub/HypoSubstrateTesting/code"
 
 cd ${CODE_DIR}
 
 DATA_DIR="/path/to/data"
-# DATA_DIR="/mnt/h/HypoLesion/Data/TestData"
 LESION_DIR="${DATA_DIR}/lesions"
 SPM_PATH="/path/to/spm"
 MATLAB_CMD="matlab"
@@ -48,6 +44,7 @@ BASE_IMAGES=(
     "ILF.nii"
     "SLF.nii"
 )
+
 
 # ---- simulation parameters ---- #
 
@@ -81,38 +78,27 @@ REGRESSION_TARGETS=(
 run_step3_simulations
 
 
-# ---- true substrate regression ---- #
+# ---- full experimental setup ---- #
+# combining all models and substrates in a single run. This is the most comprehensive way to run the full pipeline, but also the most time consuming.
 
 REGRESSION_TARGETS=(
     "targetfile"
 )
 
-# locally overwriting BASE_IMAGES and TARGET_FILES for this step to run all simulations in a loop
-# without affecting the variables for the other steps. This helps with function consistency.
 for b in ${BASE_IMAGES[@]}; do
+    # local overwrite of BASE_IMAGES and TARGET_FILES for each substrate map
+    # for function consistency across models.
     BASE_IMAGES=($b)
-    TARGET_FILES=($b)
-    run_step3_simulations
+    for t in ${BASE_IMAGES[@]}; do
+        TARGET_FILES=($t)
+        run_step3_simulations
+    done
 done
 
 
-# ---- false MDN substrate regression ---- #
-
-REGRESSION_TARGETS=(
-    "targetfile"
-)
-
-BASE_IMAGES=(
-    "MDN.nii")
-
-TARGET_FILES=(
-    "RF.nii")
-
-run_step3_simulations
-
-
 # ---- create semi-lollipop plot ---- #
-# using concatenated significance ratios across maps
+# After running all simulation models, the relevant model-specific results may be concatenated in the SignificanceRatios.csv files for the specific models (i.e. net_morph: morphology based simulations using network neural substrates). 
+# These can be used to create the semi-lollipop plot, which visualizes the significance ratios for each model and substrate.
 
 python create_semi_lolli.py /mnt/h/HypoLesion/Data/UCL/net_morph/SignificanceRatios.csv --spoke-color 'darkgrey' --limit 65
 python create_semi_lolli.py /mnt/h/HypoLesion/Data/UCL/net_true/SignificanceRatios.csv --spoke-color 'darkgrey' --limit 105

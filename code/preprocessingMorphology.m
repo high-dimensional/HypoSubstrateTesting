@@ -13,7 +13,6 @@
 % features of lesions using SPM.                                        %
 %                                                                       %
 % input:                                                                %
-
 % -lesionDir:  containing lesion files (default: '/path/to/Lesions')    %
 % -dataDir: directory for masks and output (default: '/path/to/Data')   %
 % -spmPath: Path to SPM installation (default: '/path/to/spm')          %

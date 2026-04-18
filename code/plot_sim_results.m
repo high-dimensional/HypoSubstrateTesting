@@ -23,23 +23,6 @@ function plot_sim_results(varargin)
     % plot_sim_results - Create figures from simulation results
     % Uses saved scatter data from actual simulation iterations and
     % split violin plots for binned p-value comparison.
-    %
-    % Usage:
-    %   plot_sim_results(resultFile)
-    %   plot_sim_results(resultFile, 'Name', Value, ...)
-    %
-    % Arguments:
-    %   resultFile  - Path to simulation results .mat file (from simulations.m)
-    %
-    % Options:
-    %   'outputFile'  - Output filepath for PDF (default: [resultFile(1:end-4) '_figures.pdf'])
-    %   'binSize'     - Noise bin width for split violin plot (default: from .mat file, or 0.05)
-    %
-    % Example:
-    %   plot_sim_results('base-MDN_morphology.mat')
-    %   plot_sim_results('base-MDN_morphology.mat', 'outputFile', 'output/figures.pdf')
-    %   plot_sim_results('base-MDN_morphology.mat', 'binSize', 0.1)
-
     p = inputParser;
     addParameter(p, 'outputFile', '', @(x) ischar(x) || isstring(x));
     addParameter(p, 'binSize', NaN, @(x) isnumeric(x) && isscalar(x));
@@ -90,10 +73,6 @@ function plot_sim_results(varargin)
     tiledlayout('flow', 'TileSpacing', 'tight');
     set(gca, 'Color', 'white');
 
-    % === SCATTER PLOTS: use actual simulation data from saved iterations ===
-    % scatterData_low and scatterData_high contain the exact data from the
-    % first (lowest noise) and last (highest noise) simulation iterations,
-    % so these plots show real iterations rather than regenerated ones.
     if exist('scatterData_low', 'var') && exist('scatterData_high', 'var')
         scatterPairs = {scatterData_low, scatterData_high};
         for j = 1:2
@@ -294,16 +273,6 @@ end
 
 function h = drawHalfViolin(xPos, data, side, faceColor, edgeColor, faceAlpha, maxWidth)
     % drawHalfViolin - Draw one half of a split violin plot
-    %
-    % Arguments:
-    %   xPos      - x-axis center position for the violin
-    %   data      - vector of values to estimate density from
-    %   side      - 'left' or 'right'
-    %   faceColor - RGB triplet for fill color
-    %   edgeColor - RGB triplet for edge color
-    %   faceAlpha - face transparency (0-1)
-    %   maxWidth  - maximum half-width of the violin in x-axis units
-
     [f, xi] = ksdensity(data, 'NumPoints', 200);
     % Normalize density so the peak equals maxWidth
     f = f / max(f) * maxWidth;

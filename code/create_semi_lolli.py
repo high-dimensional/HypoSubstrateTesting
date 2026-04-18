@@ -46,12 +46,7 @@ from matplotlib.font_manager import FontProperties
 
 def read_csv(csv_path, add_spacers=False):
     '''
-    Read a SignificanceRatios.csv produced by sim_analysis.m. Returns a
-    DataFrame with a cleaned baseImage label and a combined spoke label
-    of the form "BaseImage [binStart-binEnd]".
-
-    Each row in the CSV represents one noise bin for one base image and
-    becomes one spoke on the chart.
+    Read a SignificanceRatios.csv produced by sim_analysis.m.
 
     When *add_spacers* is True an empty spoke (label '', values NaN) is
     inserted between every pair of consecutive base-image groups.  This
