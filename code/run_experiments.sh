@@ -11,7 +11,7 @@
 #                                                                       #
 #                                                                       #
 # This script contains all steps to run the full pipeline               #
-# of the project.                                                      #
+# of the project.                                                       #
 #                                                                       #
 #                                                                       #
 # Author: Patrik Bey, patrik.bey@ucl.ac.uk                              #
@@ -26,9 +26,12 @@
 
 # ---- SET VARIABLES ---- #
 CODE_DIR="/path/to/GitHub/HypoSubstrateTesting/code"
+# CODE_DIR="/mnt/h/GitHub/HypoSubstrateTesting/code"
+
 cd ${CODE_DIR}
 
 DATA_DIR="/path/to/data"
+# DATA_DIR="/mnt/h/HypoLesion/Data/TestData"
 LESION_DIR="${DATA_DIR}/lesions"
 SPM_PATH="/path/to/spm"
 MATLAB_CMD="matlab"
