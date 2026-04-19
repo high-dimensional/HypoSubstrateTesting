@@ -81,28 +81,28 @@ function plot_sim_results(varargin)
             set(ax1, 'Color', 'w', 'XColor', 'k', 'YColor', 'k');
 
             sd = scatterPairs{j};
-            ovrl = sd.ovrl;
-            cogg = sd.cogg;
-            comp = sd.comp;
+            overlap = sd.overlap;
+            behaviour = sd.behaviour;
+            substrate = sd.substrate;
             indvec = sd.indvec;
-            voll = sd.voll;
+            volume = sd.volume;
             noiseLevel = sd.noiseLevel;
 
             % Refit regression from the saved filtered data table
             % (LinearModel objects may not serialize reliably across MATLAB versions)
-            fit = fitlm(sd.data, 'interactions', 'ResponseVar', 'Cognition', ...
-                'PredictorVars', {'Overlap', 'Network'}, ...
-                'CategoricalVar', {'Network'}, 'RobustOpts', 'off');
+            fit = fitlm(sd.data, 'interactions', 'ResponseVar', 'Behaviour', ...
+                'PredictorVars', {'Overlap', 'Substrate'}, ...
+                'CategoricalVar', {'Substrate'}, 'RobustOpts', 'off');
 
-            w = linspace(min(ovrl), max(voll));
+            w = linspace(min(overlap), max(volume));
 
-            gscatter(ovrl(indvec), cogg(indvec), comp(indvec), [0 0 0; 1 0 0], '..')
+            gscatter(overlap(indvec), behaviour(indvec), substrate(indvec), [0 0 0; 1 0 0], '..')
             line(w, feval(fit, w, 1), 'Color', [1 0 0], 'LineWidth', 2)
             line(w, feval(fit, w, 0), 'Color', 'k', 'LineWidth', 2)
 
-            xlim([0 max(voll)]);
+            xlim([0 max(volume)]);
             xlabel('Compartment damage volume')
-            ylabel('Simulated cognitive performance')
+            ylabel('Simulated behavioural performance')
             title(['Noise \sigma = ' num2str(noiseLevel)]);
             axis square
             set(gca, 'XScale', 'linear', 'YScale', 'linear')

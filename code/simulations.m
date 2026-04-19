@@ -187,7 +187,7 @@ function simulations(varargin)
                 error('princ variable not found in morphology file');
             end
             % Use only the first column (primary principal axis length)
-            princ = princ(:,1);
+            xi = princ(:,1);
             
         case 'targetfile'
             [~, targetName, ~] = fileparts(targetFile);
@@ -200,17 +200,17 @@ function simulations(varargin)
                 % Check if res exists, otherwise use princ (backward compatibility)
                 if isfield(targetData, 'res')
                     fprintf('Target file loaded (targetData.res: %dx%d)\n', size(targetData.res, 1), size(targetData.res, 2));
-                    princ = targetData.res(:,1);
+                    xi = targetData.res(:,1);
                 elseif isfield(targetData, 'princ')
                     fprintf('Target file loaded (using princ field: %dx%d)\n', size(targetData.princ, 1), size(targetData.princ, 2));
-                    princ = targetData.princ;
+                    xi = targetData.princ;
                 else
                     error('Target file does not contain res or princ variable: %s', targetCacheFile);
                 end
             else
                 error('Target cache file not found: %s. Run preprocessingFeatures first.', targetCacheFile);
             end
-            fprintf('princ extracted from target data (size: %dx%d)\n', size(princ, 1), size(princ, 2));
+            fprintf('xi extracted from target data (size: %dx%d)\n', size(xi, 1), size(xi, 2));
     end
     
     % Ensure res contains the base image data (not target data)
@@ -231,7 +231,7 @@ function simulations(varargin)
             fprintf('Subsetting data: selecting %d of %d rows at random...\n', n_subset, nTotal);
             subIdx = randperm(nTotal, n_subset)';
             res = res(subIdx, :);
-            princ = princ(subIdx, :);
+            xi = xi(subIdx, :);
             fprintf('Data subsetted to %d rows.\n', n_subset);
         end
     end
@@ -248,7 +248,7 @@ function simulations(varargin)
             fprintf('  Completed %d/%d iterations\n', j, nits);
         end
         
-        [result(:, j), iterData] = runIteration(res, princ, regressionTarget, nlev(j), ncas, splitPercentile);
+        [result(:, j), iterData] = runIteration(res, xi, regressionTarget, nlev(j), ncas, splitPercentile);
         
         % Capture scatter plot data from the first and last iterations
         if j == 1
@@ -346,15 +346,15 @@ function simulations(varargin)
 end
 
 
-function [result, dataOut] = runIteration(res, princ, regressionTarget, noiseLevel, ncas, splitPercentile)
+function [result, dataOut] = runIteration(res, xi, regressionTarget, noiseLevel, ncas, splitPercentile)
     % runIteration - Run a single simulation iteration with balanced subsampling
     %
     % Workflow:
-    %   1. Compute cognitive scores for ALL samples
-    %   2. Add noise to ALL cognitive scores
-    %   3. Subsample to get balanced classes based on noisy cognitive scores:
-    %      - "Low" group: samples with cog <= splitPercentile threshold
-    %      - "High" group: samples with cog > splitPercentile threshold
+    %   1. Compute behavioural scores yi for ALL samples
+    %   2. Add noise epsilon to ALL behavioural scores
+    %   3. Subsample to get balanced classes based on noisy behavioural scores:
+    %      - "Low" group: samples with yi <= splitPercentile threshold
+    %      - "High" group: samples with yi > splitPercentile threshold
     %      - Sample ncas/2 from each group
     %   4. Run regression analysis on subsampled data
     
@@ -362,37 +362,37 @@ function [result, dataOut] = runIteration(res, princ, regressionTarget, noiseLev
     nCases = size(res, 1);
     
     % Extract lesion overlap data
-    BaseVol = res(:,1);    % Base image overlap volume
-    nBaseVol = res(:,2);   % Non-base image overlap volume
-    totvol = res(:,3);     % Total lesion volume
+    vin = res(:,1);     % Volume of overlap inside substrate (vin)
+    vout = res(:,2);    % Volume of lesion outside substrate (vout)
+    vtot = res(:,3);    % Total lesion volume (vtot = vin + vout)
 
-    % === STEP 1 & 2: Compute cognitive scores for ALL samples and add noise ===
+    % === STEP 1 & 2: Compute behavioural scores yi for ALL samples and add noise ===
     
-    % Generate noise for ALL samples
+    % Generate noise epsilon for ALL samples
     pd = makedist('Normal', 'mu', 0, 'sigma', noiseLevel);
-    dis = random(pd, [nCases 1]);
+    epsilon = random(pd, [nCases 1]);
 
-    % Compute cognitive target for ALL samples
+    % Compute behavioural score yi for ALL samples
     switch lower(regressionTarget)
         case 'morphology'
-            cog = 1 - rescale(princ(:));
+            yi = 1 - rescale(xi(:));
         case 'targetfile'
-            princ_temp = rescale(princ(:));  % Ensure column vector
-            cog = 1 - princ_temp;
+            xi_temp = rescale(xi(:));  % Ensure column vector
+            yi = 1 - xi_temp;
     end
-    cog = cog(:);  % Ensure column vector
+    yi = yi(:);  % Ensure column vector
     
-    % Add noise to ALL cognitive scores
-    cog = cog + dis;
+    % Add noise to ALL behavioural scores
+    yi = yi + epsilon;
 
-    % === STEP 3: Balanced subsampling based on noisy cognitive scores ===
+    % === STEP 3: Balanced subsampling based on noisy behavioural scores ===
     
     % Calculate percentile threshold
-    threshold = prctile(cog, splitPercentile);
+    threshold = prctile(yi, splitPercentile);
     
     % Identify low and high groups
-    lowIdx = find(cog <= threshold);   % Indices of "low" cognitive group
-    highIdx = find(cog > threshold);   % Indices of "high" cognitive group
+    lowIdx = find(yi <= threshold);   % Indices of "low" behavioural group
+    highIdx = find(yi > threshold);   % Indices of "high" behavioural group
     
     % Number of samples per group
     nPerGroup = floor(ncas / 2);
@@ -426,34 +426,34 @@ function [result, dataOut] = runIteration(res, princ, regressionTarget, noiseLev
     % Create selection vector (for compatibility with existing visualization code)
     selvec = zeros(nCases, 1);
     selvec(selectedIdx) = 1;
-    indvec = logical([selvec; selvec]);  % Duplicated for BaseVol and nBaseVol rows
+    indvec = logical([selvec; selvec]);  % Duplicated for vin and vout rows
 
     % === STEP 4: Build data structure and run regression ===
     
-    % Prepare comparison data (duplicate rows for BaseVol vs nBaseVol comparison)
-    ovrl = [BaseVol; nBaseVol];           % Overlap values
-    voll = [totvol; totvol];              % Volume values (same for both)
-    cogg = [cog; cog];                    % Cognitive scores (same for both)
-    comp = zeros(size(cogg, 1), 1);       % Network indicator
-    comp(1:nCases) = 1;                   % First half = base network (1), second half = non-base (0)
+    % Prepare comparison data (duplicate rows for vin vs vout comparison)
+    overlap = [vin; vout];              % Overlap values
+    volume = [vtot; vtot];              % Volume values (same for both)
+    behaviour = [yi; yi];               % Behavioural scores (same for both)
+    substrate = zeros(size(behaviour, 1), 1);  % Substrate indicator
+    substrate(1:nCases) = 1;            % First half = target substrate (1), second half = non-target (0)
 
     % Create data table with selected samples only
-    data = table(cogg, ovrl, voll, comp, 'VariableNames', {'Cognition', 'Overlap', 'Volume', 'Network'});
+    data = table(behaviour, overlap, volume, substrate, 'VariableNames', {'Behaviour', 'Overlap', 'Volume', 'Substrate'});
     data(~indvec, :) = [];
 
     % Fit model without volume covariate
-    fit = fitlm(data, 'interactions', 'ResponseVar', 'Cognition', ...
-        'PredictorVars', {'Overlap', 'Network'}, ...
-        'CategoricalVar', {'Network'}, 'RobustOpts', 'off');
+    fit = fitlm(data, 'interactions', 'ResponseVar', 'Behaviour', ...
+        'PredictorVars', {'Overlap', 'Substrate'}, ...
+        'CategoricalVar', {'Substrate'}, 'RobustOpts', 'off');
 
     anv = anova(fit);
     tmp = anv.pValue;
     result(1) = -log(tmp(3));
 
     % Fit model with volume covariate
-    fit2 = fitlm(data, 'interactions', 'ResponseVar', 'Cognition', ...
-        'PredictorVars', {'Overlap', 'Volume', 'Network'}, ...
-        'CategoricalVar', {'Network'}, 'RobustOpts', 'off');
+    fit2 = fitlm(data, 'interactions', 'ResponseVar', 'Behaviour', ...
+        'PredictorVars', {'Overlap', 'Volume', 'Substrate'}, ...
+        'CategoricalVar', {'Substrate'}, 'RobustOpts', 'off');
 
     anv2 = anova(fit2);
     tmp = anv2.pValue;
@@ -463,10 +463,10 @@ function [result, dataOut] = runIteration(res, princ, regressionTarget, noiseLev
     % Note: LinearModel objects don't serialize reliably across MATLAB
     % versions, so we save the filtered data table instead and refit at
     % plot time (cheap for a single iteration).
-    dataOut.ovrl = ovrl;
-    dataOut.cogg = cogg;
-    dataOut.comp = comp;
+    dataOut.overlap = overlap;
+    dataOut.behaviour = behaviour;
+    dataOut.substrate = substrate;
     dataOut.indvec = indvec;
-    dataOut.voll = voll;
+    dataOut.volume = volume;
     dataOut.data = data;
 end
