@@ -1,6 +1,6 @@
 
 <p align='center'>
-    <img src= 'img/Figure1.png' width="30%">
+    <img src= 'img/Figure2.svg' width="30%">
 
 </p>
 
@@ -13,21 +13,21 @@ Testing hypothesized neural substrates with lesions
 This code has been developed by the High Dimensional Neurology group at the [Queen Square Institute of Neurology UCL](https://www.ucl.ac.uk/brain-sciences/ion).
 
 Authors: <br>
-Parashkev Nachev; <br>
-[Patrik Bey](https://github.com/PatrikBey)
-
+[Patrik Bey](https://github.com/PatrikBey) <br>
+Parashkev Nachev
 
 
 ### INPUT REQUIREMENTS
 The framework assumes the following file structure:
+
 ```bash
 DATA_DIR
-    |_lesions
-        |_lesion1.nii
-        |_lesion2.nii
-    |_masks
-        |_mask1.nii
-        |_mask2.nii
+    |_LESIONS
+        |_sub-0001_lesion.nii
+        |_sub-0002_lesion.nii
+    |_MASKS
+        |_substrate_mask_1.nii
+        |_substrate_mask_2.nii
 ```
 
 ### SOFTWARE REQUIREMENTS
@@ -35,57 +35,36 @@ DATA_DIR
 2. SPM
 3. BASH (optional for automated run script usage)
 
-### STEPS
+### USAGE
 
-#### 1. Computing lesion mask morphological properties
+To run the full framework 'run_framework.sh' can be used to include all steps of the pipeline.
+Steps of the pipeline include:
+1. lesion mask processing
+2. lesion morphology computation
+3. substrate-based synthetic behaviour computation
+4. MCMC simulations
+5. model-based visualisation
+6. summary visualisation
 
 ```bash
-# single function call
-run_step1_morphology
+cd ./code
+
+LESION_DIR=./data/LESIONS
+MASK_DIR=./data/MASKS
+BRAIN_MASK=./data/mni_brain_mask.nii.gz
+SPM_PATH=/PATH/TO/spm
+OUT_DIR=/PATH/TO/RESULTS
+MATLAB_CMD=/PATH/TO/MatlabR2025b/bin/matlab
+MAX_JOBS=16
+
+bash run_framework.sh
 ```
-#### 2. Computing lesion mask / target mask features
-```bash
-# single function call
-run_step2_features 
-```
-#### 3. Running simulations
-```bash
-# ---- true substrate regression ---- #
-# example use case for true substrate regression model.
 
-REGRESSION_TARGETS=(
-    "targetfile"
-)
 
-BASE_IMAGES=(
-    "MDN.nii")
 
-TARGET_FILES=(
-    "MDN.nii")
 
-run_step3_simulations
 
-# ---- false substrate regression ---- #
-# example use case for MDN.nii base image and RF.nii showcasing the false substrate regression model.
 
-REGRESSION_TARGETS=(
-    "targetfile"
-)
-
-BASE_IMAGES=(
-    "MDN.nii")
-
-TARGET_FILES=(
-    "RF.nii")
-
-run_step3_simulations
-
-```
-#### 4. Visualizations of significance ratios across different models
-```bash
-# exemplary call for true-substrate regression models
-python create_semi_lolli.py /path/to/true-substrate/SignificanceRatios.csv --spoke-color 'darkgrey' --limit 105
-```
 
 ## REFERENCES
 Patrik Bey, Joe Mole, James K. Ruffle, Amy Nelson, Edgar Chan, Parashkev Nachev, and Lisa Cipolotti, Testing hypothesized neural substrates with lesions, (2026), *under review*
