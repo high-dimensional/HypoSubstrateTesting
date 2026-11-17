@@ -129,11 +129,15 @@ if exists "${FEATURE_DIR}/lesion_features.mat"; then
     log_msg "| UPDATE | Step 2: lesion_features.mat found, skipping |"
 else
     log_msg "| START | Step 2: lesion features (${N_PARTS} parts) |"
+    rm -f "${FEATURE_DIR}"/lesion_features_part*.mat   # stale parts from earlier runs would corrupt the merge
     for k in $(seq 1 "${N_PARTS}"); do
         spawn run_matlab "lesion_features('lesionDir','${LESIONS_USED}','outDir','${FEATURE_DIR}','spmPath','${SPM_PATH}','part',${k},'nParts',${N_PARTS})"
     done
     wait_all || { log_msg "| ERROR | lesion features failed |"; exit 1; }
-    run_matlab "lesion_features('lesionDir','${LESIONS_USED}','outDir','${FEATURE_DIR}','nParts',${N_PARTS},'merge',true)" || { log_msg "| ERROR | merging lesion features failed |"; exit 1; }
+    # with a single part, lesion_features.m already writes lesion_features.mat; nothing to merge
+    if [ "${N_PARTS}" -gt 1 ]; then
+        run_matlab "lesion_features('lesionDir','${LESIONS_USED}','outDir','${FEATURE_DIR}','nParts',${N_PARTS},'merge',true)" || { log_msg "| ERROR | merging lesion features failed |"; exit 1; }
+    fi
 fi
 
 

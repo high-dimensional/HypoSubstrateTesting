@@ -39,6 +39,7 @@ DATA_DIR
 
 To run the full framework 'run_framework.sh' can be used to include all steps of the pipeline.
 Steps of the pipeline include:
+
 1. lesion mask processing
 2. lesion morphology computation
 3. substrate-based synthetic behaviour computation
@@ -47,17 +48,16 @@ Steps of the pipeline include:
 6. summary visualisation
 
 ```bash
-cd ./code
+# run from the repository root
+export LESION_DIR=/PATH/TO/LESIONS
+export MASK_DIR=$(pwd)/data/MASKS
+export BRAIN_MASK=$(pwd)/data/mni_brain_mask.nii.gz
+export SPM_PATH=/PATH/TO/spm
+export MATLAB_CMD=/PATH/TO/MatlabR2025b/bin/matlab
+export OUT_DIR=/PATH/TO/RESULTS
+export MAX_JOBS=16
 
-LESION_DIR=./data/LESIONS
-MASK_DIR=./data/MASKS
-BRAIN_MASK=./data/mni_brain_mask.nii.gz
-SPM_PATH=/PATH/TO/spm
-OUT_DIR=/PATH/TO/RESULTS
-MATLAB_CMD=/PATH/TO/MatlabR2025b/bin/matlab
-MAX_JOBS=16
-
-bash run_framework.sh
+bash ./code/run_framework.sh
 ```
 
 
